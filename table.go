@@ -1,10 +1,12 @@
-// 内存表
+//
+// csv 内存表
 // tabu 2014-08-05
 package csvtab
 
 import (
 	"encoding/csv"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -22,16 +24,6 @@ type Table struct {
 }
 
 // by name
-type By struct {
-	Name  string
-	Order int
-}
-
-type ByLess struct {
-	Name string
-	Less LessFunc
-}
-
 type KV struct {
 	Name, Value string
 }
@@ -98,22 +90,22 @@ func (t *Table) GetCount() int {
 }
 
 func (t *Table) Get(i int, column string) string {
-	if j, ok := t.IndexOf(column); ok {
+	if j, ok := t.MapOf(column); ok {
 		return t.Rows[i][j]
 	}
 
 	panic(column)
 }
 
-func (t *Table) IndexOf(column string) (index int, ok bool) {
+func (t *Table) MapOf(column string) (index int, ok bool) {
 	index, ok = t.ColIndex[column]
 	return
 }
 
-func (t *Table) IntColumn(names []string) ([]int, bool) {
+func (t *Table) Map(names []string) ([]int, bool) {
 	intCols := make([]int, len(names))
 	for i, v := range names {
-		if index, ok := t.IndexOf(v); ok {
+		if index, ok := t.MapOf(v); ok {
 			intCols[i] = index
 		} else {
 			return nil, false
@@ -152,29 +144,20 @@ func (t *Table) FindFirst(start int, f Predicate) int {
 	return -1
 }
 
-func (t *Table) OrderBy(cols ...By) *Table {
+// column1,lessfunc1, column2, lessfunc2
+func (t *Table) OrderBy(columnLessFunc ...interface{}) *Table {
 	less := []ColumnLess{}
-	for _, v := range cols {
-		if idx, ok := t.IndexOf(v.Name); ok {
-			if v.Order == OrderAES {
+	for _, v := range columnLessFunc {
+		valueType := reflect.TypeOf(v)
+		if valueType.Kind() == reflect.String {
+			name := v.(string)
+			if idx, ok := t.MapOf(name); ok {
 				less = append(less, ColumnLess{idx, LessStringAES})
 			} else {
-				less = append(less, ColumnLess{idx, LessStringDES})
+				panic("invalid column name " + name)
 			}
-		}
-	}
-
-	if len(less) > 0 {
-		OrderedBy(less).Sort(t.Rows)
-	}
-	return t
-}
-
-func (t *Table) OrderByLess(cols ...ByLess) *Table {
-	less := []ColumnLess{}
-	for _, v := range cols {
-		if idx, ok := t.IndexOf(v.Name); ok {
-			less = append(less, ColumnLess{idx, v.Less})
+		} else if valueType.Kind() == reflect.Func {
+			less[len(less)-1].Less = v.(func(string, string) bool)
 		}
 	}
 
@@ -185,7 +168,7 @@ func (t *Table) OrderByLess(cols ...ByLess) *Table {
 }
 
 func (t *Table) Distinct(cols ...string) *Table {
-	intCols, ok := t.IntColumn(cols)
+	intCols, ok := t.Map(cols)
 	if ok {
 		return t.DistinctI(intCols)
 	} else {
@@ -218,7 +201,7 @@ func (t *Table) DistinctI(cols []int) *Table {
 
 // hash index
 func (t *Table) CreateHashIndex(cols ...string) *HashIndex {
-	intCols, ok := t.IntColumn(cols)
+	intCols, ok := t.Map(cols)
 	if !ok {
 		return nil
 	}
@@ -272,7 +255,7 @@ func (t *Table) Query(values ...KV) *Table {
 		return table
 	} else {
 		// fmt.Println("query for full table.")
-		intCols, ok := t.IntColumn(cols)
+		intCols, ok := t.Map(cols)
 		if !ok {
 			panic(values)
 		}
@@ -294,7 +277,7 @@ func (t *Table) Search(orderedColumnValue ...KV) int {
 	for _, v := range orderedColumnValue {
 		cols = append(cols, v.Name)
 	}
-	intCols, ok := t.IntColumn(cols)
+	intCols, ok := t.Map(cols)
 	if !ok {
 		panic(orderedColumnValue)
 	}

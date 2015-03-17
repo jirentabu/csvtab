@@ -44,21 +44,21 @@ func TestReadAll(t *testing.T) {
 
 func TestOrderBy(t *testing.T) {
 	table := fillTable()
-	table.OrderBy(By{"Column1", OrderAES})
+	table.OrderBy("Column1")
 	for i := 0; i < table.GetCount()-1; i++ {
 		a := table.Get(i, "Column1")
 		b := table.Get(i+1, "Column1")
 		if a > b {
-			t.Fatal(a, b)
+			t.Error(a, b)
 		}
 	}
 
-	table.OrderByLess(ByLess{"Column2", LessFloatAES})
+	table.OrderBy("Column2", LessFloatAES)
 	for i := 0; i < table.GetCount()-1; i++ {
 		a := table.Get(i, "Column2")
 		b := table.Get(i+1, "Column2")
 		if !LessFloatAES(a, b) {
-			t.Fatal(a, b)
+			t.Error(a, b)
 		}
 	}
 
@@ -81,13 +81,13 @@ func TestQuery(t *testing.T) {
 	hash := table.getHash([]string{"Column1"})
 
 	if hash == nil {
-		t.Fatal("create index error.")
+		t.Error("create index error.")
 	}
 
 	q := table.Query(KV{"Column1", "2"})
 	for i := 0; i < q.GetCount(); i++ {
 		if q.Get(i, "Column1") != "2" {
-			t.Fatal(q.Get(i, "Column1"))
+			t.Error(q.Get(i, "Column1"))
 		}
 	}
 	fmt.Println("query result:")
@@ -96,6 +96,6 @@ func TestQuery(t *testing.T) {
 	}
 
 	if q.GetCount() != 2 {
-		t.Fatal(q.GetCount())
+		t.Error(q.GetCount())
 	}
 }
