@@ -1,2 +1,2 @@
 # csvtab
-csv table
+csv memory table. support orderby,distinct and query.
