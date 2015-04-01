@@ -4,8 +4,10 @@
 package csvtab
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -58,6 +60,42 @@ func ReadAll(r *csv.Reader, header bool) (*Table, error) {
 		table.Rows = records
 	}
 	return table, nil
+}
+
+func FromBytes(bs []byte, comma rune) (*Table, error) {
+	// skip utf-8 bom
+	if len(bs) > 3 && bs[0] == 0xef && bs[1] == 0xbb && bs[2] == 0xbf {
+		bs = bs[3:]
+	}
+	r := csv.NewReader(bytes.NewReader(bs))
+	r.Comma = comma
+	tab, err := ReadAll(r, true)
+	if err == nil {
+		return tab, nil
+	} else {
+		return nil, err
+	}
+}
+
+func FromFile(file string, comma rune) (*Table, error) {
+	f, err := os.Open(file)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// skip utf-8 bom
+	data := make([]byte, 3)
+	n, err := f.Read(data)
+	if n == 3 && data[0] == 0xef && data[1] == 0xbb && data[2] == 0xbf {
+		f.Seek(3, os.SEEK_SET)
+	} else {
+		f.Seek(0, os.SEEK_SET)
+	}
+
+	r := csv.NewReader(f)
+	r.Comma = comma
+	return ReadAll(r, true)
 }
 
 func (t *Table) AddColumns(count int) {
